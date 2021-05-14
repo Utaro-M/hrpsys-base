@@ -158,6 +158,7 @@ class HapticController : public RTC::DataFlowComponentBase{
                 hrp::Vector2 force_feedback_limit_ft;
                 hrp::Vector2 q_ref_pd_gain;
                 std::map<std::string, hrp::dvector6> ex_ee_ref_wrench;
+                hrp::Vector2 hand_pos_feedback_pd_gain;            
             HCParams(){
                 baselink_height_from_floor          = 1.5;// will be overwrited
                 dqAct_filter_cutoff_hz              = 500;// 10以下で確実に位相遅れによる振動
@@ -183,6 +184,7 @@ class HapticController : public RTC::DataFlowComponentBase{
                 ex_ee_ref_wrench["lleg"]            = hrp::dvector6::Zero();
                 ex_ee_ref_wrench["rarm"]            = hrp::dvector6::Zero();
                 ex_ee_ref_wrench["larm"]            = hrp::dvector6::Zero();
+                hand_pos_feedback_pd_gain           << 300, 30 ;
                 CheckSafeLimit();
             }
             void CheckSafeLimit(){

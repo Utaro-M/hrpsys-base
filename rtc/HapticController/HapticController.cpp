@@ -282,6 +282,7 @@ void HapticController::calcCurrentState(){
         master_ee_vel_filtered[ee] = ee_vel_filter[ee].passFilter(master_ee_vel[ee]);
         slave_ee_vel[ee].head(3) = (slave_ee_pose[ee].p - slave_ee_pose_old[ee].p) / m_dt;
         slave_ee_vel[ee].tail(3) = slave_ee_pose_old[ee].R * hrp::omegaFromRot(slave_ee_pose_old[ee].R.transpose() * slave_ee_pose[ee].R) / m_dt; // world angular velocity
+        slave_ee_vel_filtered[ee] = ee_vel_filter[ee].passFilter(slave_ee_vel[ee]);
     }
     master_ee_pose_old  = master_ee_pose;
     slave_ee_pose_old   = slave_ee_pose;
@@ -362,8 +363,24 @@ void HapticController::calcTorque(){
     std::map<std::string, hrp::dvector6> masterEEWrenches;
     for (auto ee : ee_names){ masterEEWrenches[ee].fill(0); }
     {
-        const std::vector<std::string> legs = {"lleg", "rleg"};
+        /// hand pos and rot feedback 
+        const std::vector<std::string> arms = {"larm", "rarm"};
+        for (auto arm : arms){
+            hrp::Vector3 diff_pos = master_ee_pose[arm].p - slave_ee_pose[arm].p;
+            const hrp::Vector3 diff_pos_vel = master_ee_vel_filtered[arm].head(3) - slave_ee_vel[arm].head(3);
+            hrp::Vector3 diff_rot = master_ee_pose[arm].R - slave_ee_pose[arm].R;
+            const hrp::Vector3 diff_rot_vel = master_ee_vel_filtered[arm].tail(3) - slave_ee_vel[arm].tail(3);
 
+            hrp::dvector6 wrench = (hrp::dvector6()<< diff_pos, diff_rot * hcp.hand_pos_feedback_pd_gain(0)).finished() + (hrp::dvector6()<< diff_pos_vel,diff_rot_vel * hcp.hand_pos_feedback_pd_gain(1)).finished();
+            // hrp::dvector6 diff_wrench = master_ee_pose[arm] - slave_ee_pose[arm];
+            // hrp::dvector6 wrench = (hrp::dvector6()<< diff_wrench * hcp.hand_pos_feedback_pd_gain(0) + diff_pos_vel * hcp.hand_pos_feedback_pd_gain(1)).finished();
+            LIMIT_NORM_V(wrench, 100);
+            hrp::dvector tq_tmp = J_ee[arm].transpose() * wrench;
+            for(int j=0; j<jpath_ee[arm].numJoints(); j++){ jpath_ee[arm].joint(j)->u += tq_tmp(j); }
+            masterEEWrenches[arm] += wrench;
+        }
+        
+        const std::vector<std::string> legs = {"lleg", "rleg"};        
         ///// fix ee rot horizontal
         for (auto leg : legs){
             hrp::Vector3 diff_rot;
@@ -659,6 +676,7 @@ bool HapticController::setParams(const OpenHRP::HapticControllerService::HapticC
     hcp.foot_horizontal_pd_gain             = hrp::to_Vector2(i_param.foot_horizontal_pd_gain);
     hcp.force_feedback_limit_ft             = hrp::to_Vector2(i_param.force_feedback_limit_ft);
     hcp.q_ref_pd_gain                       = hrp::to_Vector2(i_param.q_ref_pd_gain);
+    hcp.hand_pos_feedback_pd_gain           = hrp::to_Vector2(i_param.hand_pos_feedback_pd_gain);    
     for (int i=0; i<ee_names.size(); i++){//順番気をつけないと危険．confファイルに書いたend_effectorの順
         for(int j=0;j<6;j++){
             hcp.ex_ee_ref_wrench[ee_names[i]](j) =  i_param.ex_ee_ref_wrench[i][j];
@@ -703,7 +721,7 @@ bool HapticController::getParams(OpenHRP::HapticControllerService::HapticControl
     i_param.foot_horizontal_pd_gain             = hrp::to_DblSequence2(hcp.foot_horizontal_pd_gain);
     i_param.force_feedback_limit_ft             = hrp::to_DblSequence2(hcp.force_feedback_limit_ft);
     i_param.q_ref_pd_gain                       = hrp::to_DblSequence2(hcp.q_ref_pd_gain);
-
+    i_param.hand_pos_feedback_pd_gain           = hrp::to_DblSequence2(hcp.hand_pos_feedback_pd_gain);
     i_param.ex_ee_ref_wrench.length(4);
     for (int i=0; i<ee_names.size(); i++){//順番気をつけないと危険．confファイルに書いたend_effectorの順
         i_param.ex_ee_ref_wrench[i].length(6);
