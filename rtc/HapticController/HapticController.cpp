@@ -374,6 +374,9 @@ void HapticController::calcTorque(){
             hrp::dvector6 wrench = (hrp::dvector6()<< diff_pos, diff_rot * hcp.hand_pos_feedback_pd_gain(0)).finished() + (hrp::dvector6()<< diff_pos_vel,diff_rot_vel * hcp.hand_pos_feedback_pd_gain(1)).finished();
             // hrp::dvector6 diff_wrench = master_ee_pose[arm] - slave_ee_pose[arm];
             // hrp::dvector6 wrench = (hrp::dvector6()<< diff_wrench * hcp.hand_pos_feedback_pd_gain(0) + diff_pos_vel * hcp.hand_pos_feedback_pd_gain(1)).finished();
+            if (wrench.norm() > 100){
+                std::cerr << " wrench exceed max value : value =" <<  wrench.norm()<< std::endl;
+            }
             LIMIT_NORM_V(wrench, 100);
             hrp::dvector tq_tmp = J_ee[arm].transpose() * wrench;
             for(int j=0; j<jpath_ee[arm].numJoints(); j++){ jpath_ee[arm].joint(j)->u += tq_tmp(j); }
