@@ -41,6 +41,7 @@ module OpenHRP
         DblSequence2 force_feedback_limit_ft;
         DblSequence2 q_ref_pd_gain;
         DblSeqSeq6   ex_ee_ref_wrench;
+        DblSequence2 hand_pos_feedback_pd_gain;        
     };
     boolean startHapticController();
     boolean stopHapticController();

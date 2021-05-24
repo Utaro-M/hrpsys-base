@@ -122,7 +122,7 @@ class HapticController : public RTC::DataFlowComponentBase{
         std::map<std::string, BiquadIIRFilterVec> ee_vel_filter;
         std::map<std::string, BiquadIIRFilterVec> wrench_lpf_for_hpf, wrench_lpf;
         std::map<std::string, hrp::Pose3> master_ee_pose, master_ee_pose_old, slave_ee_pose, slave_ee_pose_old;
-        std::map<std::string, hrp::dvector6> master_ee_vel, master_ee_vel_filtered, slave_ee_vel; // = twist
+        std::map<std::string, hrp::dvector6> master_ee_vel, master_ee_vel_filtered, slave_ee_vel, slave_ee_vel_filtered; // = twist
         std::map<std::string, hrp::JointPath> jpath_ee;
         std::map<std::string, hrp::dmatrix> J_ee;
         std::map<std::string, bool> is_contact_to_floor;
