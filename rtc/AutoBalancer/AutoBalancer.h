@@ -222,6 +222,7 @@ class AutoBalancer
   void updateTargetCoordsForHandFixMode (rats::coordinates& tmp_fix_coords);
   void calculateOutputRefForces ();
   hrp::Vector3 calcFootMidPosUsingZMPWeightMap ();
+  hrp::Vector3 calcArmMidPos ();
   void updateWalkingVelocityFromHandError (rats::coordinates& tmp_fix_coords);
   void calcReferenceJointAnglesForIK ();
   hrp::Matrix33 OrientRotationMatrix (const hrp::Matrix33& rot, const hrp::Vector3& axis1, const hrp::Vector3& axis2);
@@ -254,7 +255,7 @@ class AutoBalancer
   std::map<std::string, ABCIKparam> ikp;
   std::map<std::string, size_t> contact_states_index_map;
   std::map<std::string, hrp::VirtualForceSensorParam> m_vfs;
-  std::vector<std::string> sensor_names, leg_names, ee_vec;
+  std::vector<std::string> sensor_names, leg_names, arm_names, ee_vec;
   hrp::Vector3 target_root_p;
   hrp::Matrix33 target_root_R;
   rats::coordinates fix_leg_coords, fix_leg_coords2;
@@ -285,7 +286,9 @@ class AutoBalancer
   std::string graspless_manip_arm;
   hrp::Vector3 graspless_manip_p_gain;
   rats::coordinates graspless_manip_reference_trans_coords;
-
+  bool brachiation_mode;
+  hrp::Vector2 arm_cog_weight_map;
+  hrp::Vector3 tmp_arm_mid_pos;
   hrp::InvDynStateBuffer idsb;
   std::vector<IIRFilter> invdyn_zmp_filters;
 

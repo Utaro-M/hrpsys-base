@@ -171,6 +171,8 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     coil::vstring leg_offset_str = coil::split(prop["abc_leg_offset"], ",");
     leg_names.push_back("rleg");
     leg_names.push_back("lleg");
+    arm_names.push_back("rarm");
+    arm_names.push_back("larm");
 
     // Generate FIK
     fik = fikPtr(new SimpleFullbodyInverseKinematicsSolver(m_robot, std::string(m_profile.instance_name), m_dt));
@@ -370,7 +372,9 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     graspless_manip_mode = false;
     graspless_manip_arm = "arms";
     graspless_manip_p_gain = hrp::Vector3::Zero();
-
+    brachiation_mode = false;
+    // arm_cog_weight_map = {1.0 , 1.0};
+    arm_cog_weight_map = {1.0, 1.0};// hrp::Vector2::Zero();
     is_stop_mode = false;
     is_hand_fix_mode = false;
 
@@ -726,10 +730,15 @@ void AutoBalancer::getTargetParameters()
     // Calculate ZMP, COG, and sbp targets
     hrp::Vector3 tmp_ref_cog(m_robot->calcCM());
     hrp::Vector3 tmp_foot_mid_pos = calcFootMidPosUsingZMPWeightMap ();
+    hrp::Vector3 tmp_arm_mid_pos = 0.001 * calcArmMidPos () + (1 -0.001) * ref_cog ;
     if (gg_is_walking) {
       ref_cog = gg->get_cog();
     } else {
-      ref_cog = tmp_foot_mid_pos;
+      if (brachiation_mode){
+        ref_cog = tmp_arm_mid_pos;
+      } else {
+        ref_cog = tmp_foot_mid_pos;
+      }
     }
     ref_cog(2) = tmp_ref_cog(2);
     if (gg_is_walking) {
@@ -995,6 +1004,25 @@ hrp::Vector3 AutoBalancer::calcFootMidPosUsingZMPWeightMap ()
     }
     tmp_foot_mid_pos *= (1.0 / sum_of_weight);
     return tmp_foot_mid_pos;
+}
+
+hrp::Vector3 AutoBalancer::calcArmMidPos ()
+{
+    hrp::Vector3 tmp_arm_mid_pos(hrp::Vector3::Zero());
+    // std::map<leg_type, std::string> leg_type_map = gg->get_leg_type_map();
+    // std::map<leg_type, double> zmp_weight_map = gg->get_zmp_weight_map();
+    // std::map<leg_type, double> cog_weight_map = cog_weight_map;
+    double sum_of_weight = 0.0;
+    for (size_t i = 0; i < arm_names.size(); i++) {
+        ABCIKparam& tmpikp = ikp[arm_names[i]];
+        // for arm_mid_pos
+        // std::map<leg_type, std::string>::const_iterator dst = std::find_if(leg_type_map.begin(), leg_type_map.end(), (&boost::lambda::_1->* &std::map<leg_type, std::string>::value_type::second == leg_names[i]));
+        // tmp_foot_mid_pos += (tmpikp.target_p0 + tmpikp.target_r0 * default_zmp_offsets[i]) * zmp_weight_map[dst->first];
+        tmp_arm_mid_pos += tmpikp.target_p0 * arm_cog_weight_map[i];
+        sum_of_weight += arm_cog_weight_map[i];
+    }
+    tmp_arm_mid_pos *= (1.0 / sum_of_weight);
+    return tmp_arm_mid_pos;
 };
 
 void AutoBalancer::updateWalkingVelocityFromHandError (coordinates& tmp_fix_coords)
@@ -1690,6 +1718,9 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
                                                                           i_param.graspless_manip_reference_trans_rot[1],
                                                                           i_param.graspless_manip_reference_trans_rot[2],
                                                                           i_param.graspless_manip_reference_trans_rot[3]).normalized().toRotationMatrix()); // rtc: (x, y, z, w) but eigen: (w, x, y, z)
+  brachiation_mode = i_param.brachiation_mode;
+  for (size_t j = 0; j < 2; j++)
+    arm_cog_weight_map[j] = i_param.arm_cog_weight_map[j];
   transition_time = i_param.transition_time;
   std::vector<std::string> cur_leg_names, dst_leg_names;
   cur_leg_names = leg_names;
@@ -1771,6 +1802,8 @@ bool AutoBalancer::setAutoBalancerParam(const OpenHRP::AutoBalancerService::Auto
   std::cerr << "[" << m_profile.instance_name << "]   graspless_manip_p_gain = " << graspless_manip_p_gain.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << std::endl;
   std::cerr << "[" << m_profile.instance_name << "]   graspless_manip_reference_trans_pos = " << graspless_manip_reference_trans_coords.pos.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", ", ", "", "", "    [", "]")) << std::endl;
   std::cerr << "[" << m_profile.instance_name << "]   graspless_manip_reference_trans_rot = " << graspless_manip_reference_trans_coords.rot.format(Eigen::IOFormat(Eigen::StreamPrecision, 0, ", ", "\n", "    [", "]")) << std::endl;
+  std::cerr << "[" << m_profile.instance_name << "]   brachiation_mode = " << brachiation_mode << std::endl;
+  std::cerr << "[" << m_profile.instance_name << "]   arm_cog_weight_map = " << arm_cog_weight_map(0) << arm_cog_weight_map(1) << std::endl;
   std::cerr << "[" << m_profile.instance_name << "]   transition_time = " << transition_time << "[s], zmp_transition_time = " << zmp_transition_time << "[s], adjust_footstep_transition_time = " << adjust_footstep_transition_time << "[s]" << std::endl;
   for (std::vector<std::string>::iterator it = leg_names.begin(); it != leg_names.end(); it++) std::cerr << "[" << m_profile.instance_name << "]   leg_names [" << *it << "]" << std::endl;
   std::cerr << "[" << m_profile.instance_name << "]   default_gait_type = " << gait_type << std::endl;
@@ -1827,6 +1860,10 @@ bool AutoBalancer::getAutoBalancerParam(OpenHRP::AutoBalancerService::AutoBalanc
   i_param.graspless_manip_reference_trans_rot[1] = qt.x();
   i_param.graspless_manip_reference_trans_rot[2] = qt.y();
   i_param.graspless_manip_reference_trans_rot[3] = qt.z();
+  i_param.brachiation_mode = brachiation_mode;
+  i_param.arm_cog_weight_map.length(2);
+  for (size_t j = 0; j < 2; j++)
+    i_param.arm_cog_weight_map[j] = arm_cog_weight_map[j];
   i_param.transition_time = transition_time;
   i_param.zmp_transition_time = zmp_transition_time;
   i_param.adjust_footstep_transition_time = adjust_footstep_transition_time;

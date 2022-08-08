@@ -295,6 +295,8 @@ module OpenHRP
       ControllerMode controller_mode;
       UseForceMode use_force_mode;
       boolean graspless_manip_mode;
+      boolean brachiation_mode;
+      sequence<double> arm_cog_weight_map;
       string graspless_manip_arm;
       DblArray3 graspless_manip_p_gain;
       DblArray3 graspless_manip_reference_trans_pos;
