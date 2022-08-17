@@ -137,15 +137,15 @@ public:
               tmp_name.push_back(it->first);
             }
           }
-          limbStretchAvoidanceControl(tmp_p, tmp_name);
+          limbStretchAvoidanceControl(tmp_p, tmp_name);//足が伸びないように重心位置を修正？
         }
         // Overwrite by ref joint angle
         for (size_t i = 0; i < overwrite_ref_ja_index_vec.size(); i++) {
             m_robot->joint(overwrite_ref_ja_index_vec[i])->q = qrefv[overwrite_ref_ja_index_vec[i]];
-        }
+        }//AutoBalancer::calcReferenceJointAnglesForIK ()でtoe jointのための関節角度の上書きを行っている？
         m_robot->calcForwardKinematics();
         for ( std::map<std::string, IKparam>::iterator it = ikp.begin(); it != ikp.end(); it++ ) {
-            if (it->second.is_ik_enable) solveLimbIK (it->second, it->first, ratio_for_vel, is_transition);
+          if (it->second.is_ik_enable) solveLimbIK (it->second, it->first, ratio_for_vel, is_transition);//関節ごとのik?
         }
     };
     void solveSimpleFullbodyIKLoop (const hrp::Vector3& _dif_cog, const bool is_transition) {

@@ -294,7 +294,7 @@ class FullbodyInverseKinematicsSolver : public SimpleFullbodyInverseKinematicsSo
                     }
                     jlim_avoid_weight_old(j) = jlim_avoid_weight;
                 }
-                hrp::dvector dq_weight_all_final = dq_weight_all.array() * dq_weight_all_jlim.array();
+                hrp::dvector dq_weight_all_final = dq_weight_all.array() * dq_weight_all_jlim.array();//関節ごとの重み
 
                 // Solvability-unconcerned Inverse Kinematics by Levenberg-Marquardt Method [sugihara:RSJ2009]
                 const double wn_const = 1e-6;

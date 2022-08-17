@@ -468,7 +468,7 @@ hrp::Vector3 matrix_logEx(const hrp::Matrix33& m) {
     }
     return mlog;
 }
-
+//used in solveLimbIK
 bool JointPathEx::calcInverseKinematics2Loop(const Vector3& end_effector_p, const Matrix33& end_effector_R,
                                              const double LAMBDA, const double avoid_gain, const double reference_gain, const hrp::dvector* reference_q,
                                              const double vel_gain,

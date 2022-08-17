@@ -202,7 +202,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
 
     // </rtc-template>
 
-    RTC::Properties& prop =  getProperties();
+    RTC::Properties& prop =  getProperties(); //JAXON_RED.conf
     coil::stringTo(m_dt, prop["dt"].c_str());
 
     m_robot = hrp::BodyPtr(new hrp::Body());
@@ -272,14 +272,14 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
       size_t num = end_effectors_str.size()/prop_num;
       for (size_t i = 0; i < num; i++) {
         std::string ee_name, ee_target, ee_base;
-        coil::stringTo(ee_name, end_effectors_str[i*prop_num].c_str());
-        coil::stringTo(ee_target, end_effectors_str[i*prop_num+1].c_str());
-        coil::stringTo(ee_base, end_effectors_str[i*prop_num+2].c_str());
+        coil::stringTo(ee_name, end_effectors_str[i*prop_num].c_str()); //rleg
+        coil::stringTo(ee_target, end_effectors_str[i*prop_num+1].c_str());//RLEG_JOINT5
+        coil::stringTo(ee_base, end_effectors_str[i*prop_num+2].c_str());//WAIST
         ABCIKparam tp;
         hrp::Link* root = m_robot->link(ee_target);
         for (size_t j = 0; j < 3; j++) {
           coil::stringTo(tp.localPos(j), end_effectors_str[i*prop_num+3+j].c_str());
-        }
+        }//エンドエフェクタのジョイントからの位置？
         double tmpv[4];
         for (int j = 0; j < 4; j++ ) {
           coil::stringTo(tmpv[j], end_effectors_str[i*prop_num+6+j].c_str());
@@ -421,7 +421,7 @@ RTC::ReturnCode_t AutoBalancer::onInitialize()
     }
 
     std::vector<std::pair<hrp::Link*, hrp::Link*> > interlocking_joints;
-    readInterlockingJointsParamFromProperties(interlocking_joints, m_robot, prop["interlocking_joints"], std::string(m_profile.instance_name));
+    readInterlockingJointsParamFromProperties(interlocking_joints, m_robot, prop["interlocking_joints"], std::string(m_profile.instance_name));//JAXON_RED.confにはない
     if (interlocking_joints.size() > 0) {
         fik->initializeInterlockingJoints(interlocking_joints);
     }
@@ -2069,11 +2069,16 @@ void AutoBalancer::solveSimpleFullbodyIK ()
   // Revert
   fik->revertRobotStateToCurrent();
   hrp::Vector3 tmp_input_sbp = hrp::Vector3(0,0,0);
-  static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));
+  static_balance_point_proc_one(tmp_input_sbp, ref_zmp(2));//雲梯ではOFFにする必要？
+  //力情報を使用しない場合には、tmp_input_sbp=calcCM()
   hrp::Vector3 dif_cog = tmp_input_sbp - ref_cog;
+  //target_cog = tmp_foot_mid_pos;
+  // target_cog(2) = (tmp_ref_cog - tmp_fix_coords.pos + initial_fix_coords.pos)(2);ref_cogは主に足裏中心
+  //ref_cog = target_cog
+  //力情報を使用しない場合には、diff_cog = 現在の重心位置-足裏中心
 
   // Solve IK
-  fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());
+  fik->solveFullbodyIK (dif_cog, transition_interpolator->isEmpty());//足の伸び切りを防ぐためのIK？
   for (size_t i = 0; i < 2; i++) { // ik loop
     dif_cog = m_robot->calcCM() - ref_cog - dif_ref_act_cog;
     fik->solveSimpleFullbodyIKLoop(dif_cog, transition_interpolator->isEmpty());
@@ -3897,6 +3902,8 @@ bool AutoBalancer::getGoPosFootstepsSequence(const double& x, const double& y, c
     }
 };
 
+//足裏周りのモーメントなどで重心位置を修正？
+// 雲梯ではoffにする必要？
 void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, const double ref_com_height)
 {
   hrp::Vector3 target_sbp = hrp::Vector3(0, 0, 0);
@@ -3909,14 +3916,16 @@ void AutoBalancer::static_balance_point_proc_one(hrp::Vector3& tmp_input_sbp, co
     dif_ref_act_cog = m_robot->calcCM() - tmpcog;
   }
   if ( use_force == MODE_NO_FORCE ) {
-    tmp_input_sbp = tmpcog + sbp_cog_offset;
+    tmp_input_sbp = tmpcog + sbp_cog_offset;//initializeでsbp_cog_offset=000に初期化
+    //力情報を使用しない場合はtmp_input_sbpはロボットの現在の重心位置
   } else {
     calc_static_balance_point_from_forces(target_sbp, tmpcog, ref_com_height);
     tmp_input_sbp = target_sbp - sbp_offset;
     sbp_cog_offset = tmp_input_sbp - tmpcog;
   }
 };
-
+//足裏周りのモーメントなどで重心位置を修正？
+// 雲梯ではoffにする必要？
 void AutoBalancer::calc_static_balance_point_from_forces(hrp::Vector3& sb_point, const hrp::Vector3& tmpcog, const double ref_com_height)
 {
   hrp::Vector3 denom, nume;
